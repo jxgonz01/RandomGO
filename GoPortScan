@@ -1,0 +1,68 @@
+package main
+
+import (
+	"fmt"
+	"net"
+	"sync"
+	"time"
+)
+
+// scanPort attempts to connect to a specific port on the target host
+func scanPort(host string, port int, timeout time.Duration, wg *sync.WaitGroup, results chan<- int) {
+	defer wg.Done()
+	
+	target := fmt.Sprintf("%s:%d", host, port)
+	conn, err := net.DialTimeout("tcp", target, timeout)
+	
+	if err == nil {
+		conn.Close()
+		results <- port
+	}
+}
+
+// scanner performs concurrent port scanning
+func scanner(host string, startPort, endPort int, timeout time.Duration) []int {
+	var wg sync.WaitGroup
+	results := make(chan int, endPort-startPort+1)
+	openPorts := []int{}
+	
+	// Launch goroutines for each port
+	for port := startPort; port <= endPort; port++ {
+		wg.Add(1)
+		go scanPort(host, port, timeout, &wg, results)
+	}
+	
+	// Close results channel when all goroutines complete
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+	
+	// Collect open ports
+	for port := range results {
+		openPorts = append(openPorts, port)
+	}
+	
+	return openPorts
+}
+
+func main() {
+	host := "localhost"
+	startPort := 1
+	endPort := 1000
+	timeout := 500 * time.Millisecond
+	
+	fmt.Printf("Scanning %s ports %d-%d...\n", host, startPort, endPort)
+	start := time.Now()
+	
+	openPorts := scanner(host, startPort, endPort, timeout)
+	
+	elapsed := time.Since(start)
+	
+	fmt.Printf("\nScan completed in %s\n", elapsed)
+	fmt.Printf("Found %d open ports:\n", len(openPorts))
+	
+	for _, port := range openPorts {
+		fmt.Printf("  Port %d is open\n", port)
+	}
+}
