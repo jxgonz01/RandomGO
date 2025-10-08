@@ -45,7 +45,7 @@ func scanner(host string, startPort, endPort int, timeout time.Duration) []int {
 	
 	return openPorts
 }
-
+//CHANGE HOST
 func main() {
 	host := "localhost"
 	startPort := 1
